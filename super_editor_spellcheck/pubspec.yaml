@@ -24,6 +24,10 @@ dependency_overrides:
     path: ../super_editor
   super_text_layout:
     path: ../super_text_layout
+  # flutter_test_goldens depends on super_keyboard from pub, but super_editor
+  # depends on super_keyboard via git, so pin both to the local mono-repo copy.
+  super_keyboard:
+    path: ../super_keyboard
 
 dev_dependencies:
   flutter_test:

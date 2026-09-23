@@ -25,6 +25,14 @@ dependencies:
 dependency_overrides:
   super_editor:
     path: ../../super_editor
+  # super_editor depends on these via git, while super_editor_spellcheck
+  # depends on super_text_layout from pub, so pin them to the local copies.
+  super_text_layout:
+    path: ../../super_text_layout
+  attributed_text:
+    path: ../../attributed_text
+  super_keyboard:
+    path: ../../super_keyboard
 
 dev_dependencies:
   integration_test:
