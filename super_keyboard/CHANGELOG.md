@@ -1,3 +1,6 @@
+## Unreleased
+ * ADJUSTMENT: iOS - Added Swift Package Manager support. CocoaPods is still supported.
+
 ## [0.2.1] - May 26, 2025
 * FIX: Fix keyboard test simulator - we accidentally hard coded the keyboard height in a few places, now it respects
   the desired keyboard height.
