@@ -46,6 +46,12 @@ dependencies:
 #  attributed_text:
 #    path: ../attributed_text
 
+dependency_overrides:
+  # Use the local mono-repo copies so this package resolves against the
+  # same code that super_editor pulls from git.
+  attributed_text:
+    path: ../attributed_text
+
 dev_dependencies:
   flutter_lints: ^2.0.1
   golden_toolkit: ^0.15.0

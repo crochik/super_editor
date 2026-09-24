@@ -28,6 +28,8 @@ dependency_overrides:
   # depends on super_keyboard via git, so pin both to the local mono-repo copy.
   super_keyboard:
     path: ../super_keyboard
+  attributed_text:
+    path: ../attributed_text
 
 dev_dependencies:
   flutter_test:

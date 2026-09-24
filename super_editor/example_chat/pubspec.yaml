@@ -27,6 +27,10 @@ dependency_overrides:
   # while super_editor uses it from git, so force a single copy.
   super_keyboard:
     path: ../../super_keyboard
+  attributed_text:
+    path: ../../attributed_text
+  super_text_layout:
+    path: ../../super_text_layout
 
 dev_dependencies:
   flutter_test:
