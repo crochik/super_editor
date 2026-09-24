@@ -1,3 +1,6 @@
+## Unreleased
+ * ADJUSTMENT: iOS - Added Swift Package Manager support. CocoaPods is still supported.
+
 ## [0.4.0]
 ### March 27, 2026
 * BREAKING: Remove `WidgetTester` parameter from keyboard simulator API so that it can

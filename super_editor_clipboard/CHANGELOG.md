@@ -1,3 +1,6 @@
+## Unreleased
+* Adjustment: iOS - Added Swift Package Manager support. CocoaPods is still supported.
+
 ## [0.2.10]
 ### March 28, 2026
 * Adjustment: Updated `super_keyboard` dep to `v0.4.0`.

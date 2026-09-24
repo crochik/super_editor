@@ -2,7 +2,7 @@ import 'package:pigeon/pigeon.dart';
 
 @ConfigurePigeon(PigeonOptions(
   dartOut: 'lib/src/messages.g.dart',
-  swiftOut: 'macos/Classes/messages.g.swift',
+  swiftOut: 'macos/super_editor_spellcheck/Sources/super_editor_spellcheck/messages.g.swift',
 ))
 @HostApi()
 abstract class SpellCheckMac {

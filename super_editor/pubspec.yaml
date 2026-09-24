@@ -1,6 +1,9 @@
 name: super_editor
 description: Configurable, composable, extensible text editor and document renderer for Flutter.
 version: 0.3.0-dev.52
+# This fork uses git dependencies on its sibling packages, which pub.dev
+# does not allow, so it is not published.
+publish_to: none
 homepage: https://github.com/superlistapp/super_editor
 funding:
   - https://flutterbountyhunters.com
@@ -29,7 +32,10 @@ dependencies:
   flutter:
     sdk: flutter
 
-  attributed_text: ^0.4.7
+  attributed_text:
+    git:
+      url: https://github.com/crochik/super_editor.git
+      path: attributed_text
   characters: ^1.3.0
   collection: ^1.15.0
   dart_quill_delta: ^9.4.1
@@ -38,8 +44,14 @@ dependencies:
   linkify: ^5.0.0
   logging: ^1.3.0
   markdown: ^7.2.1
-  super_text_layout: ^0.1.22
-  super_keyboard: ^0.4.0
+  super_text_layout:
+    git:
+      url: https://github.com/crochik/super_editor.git
+      path: super_text_layout
+  super_keyboard:
+    git:
+      url: https://github.com/crochik/super_editor.git
+      path: super_keyboard
   url_launcher: ^6.3.1
   uuid: ^4.5.1
   overlord: ^0.4.2
@@ -63,6 +75,17 @@ dependencies:
 #    path: ../attributed_text
 #  super_text_layout:
 #    path: ../super_text_layout
+
+dependency_overrides:
+  # Resolve the in-repo packages to their local copies. super_keyboard also
+  # needs this because follow_the_leader depends on it from pub, while
+  # super_editor uses it from git.
+  super_keyboard:
+    path: ../super_keyboard
+  attributed_text:
+    path: ../attributed_text
+  super_text_layout:
+    path: ../super_text_layout
 
 dev_dependencies:
   args: ^2.3.1
