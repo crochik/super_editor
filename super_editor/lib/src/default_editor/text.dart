@@ -15,8 +15,13 @@ import 'package:super_editor/src/core/edit_context.dart';
 import 'package:super_editor/src/core/editor.dart';
 import 'package:super_editor/src/core/styles.dart';
 import 'package:super_editor/src/default_editor/attributions.dart';
-import 'package:super_editor/src/default_editor/text_ai.dart';
+import 'package:super_editor/src/default_editor/layout_single_column/layout_single_column.dart';
+import 'package:super_editor/src/default_editor/multi_node_editing.dart';
+import 'package:super_editor/src/default_editor/paragraph.dart';
+import 'package:super_editor/src/default_editor/selection_upstream_downstream.dart';
 import 'package:super_editor/src/default_editor/text/custom_underlines.dart';
+import 'package:super_editor/src/default_editor/text_ai.dart';
+import 'package:super_editor/src/default_editor/text_tools.dart';
 import 'package:super_editor/src/infrastructure/_logging.dart';
 import 'package:super_editor/src/infrastructure/attributed_text_styles.dart';
 import 'package:super_editor/src/infrastructure/composable_text.dart';
@@ -25,12 +30,6 @@ import 'package:super_editor/src/infrastructure/key_event_extensions.dart';
 import 'package:super_editor/src/infrastructure/keyboard.dart';
 import 'package:super_editor/src/infrastructure/strings.dart';
 import 'package:super_text_layout/super_text_layout.dart';
-
-import 'layout_single_column/layout_single_column.dart';
-import 'multi_node_editing.dart';
-import 'paragraph.dart';
-import 'selection_upstream_downstream.dart';
-import 'text_tools.dart';
 
 @immutable
 class TextNode extends DocumentNode {
@@ -63,6 +62,15 @@ class TextNode extends DocumentNode {
     }
 
     return true;
+  }
+
+  @override
+  bool isPositionCloserToStart(NodePosition position) {
+    if (position is! TextNodePosition) {
+      throw Exception('Expected a TextNodePosition for position but received a ${position.runtimeType}');
+    }
+
+    return position.offset < text.length / 2;
   }
 
   @override
@@ -517,6 +525,12 @@ mixin TextComponentViewModel on SingleColumnLayoutComponentViewModel {
   TextAlign get textAlignment;
   set textAlignment(TextAlign alignment);
 
+  int? get maxLines;
+  set maxLines(int? maxLines);
+
+  TextOverflow get overflow;
+  set overflow(TextOverflow overflow);
+
   TextSelection? get selection;
   set selection(TextSelection? selection);
 
@@ -565,6 +579,8 @@ mixin TextComponentViewModel on SingleColumnLayoutComponentViewModel {
       ..maxWidth = maxWidth
       ..padding = padding
       ..text = text.copy()
+      ..maxLines = maxLines
+      ..overflow = overflow
       ..textStyleBuilder = textStyleBuilder
       ..inlineWidgetBuilders = inlineWidgetBuilders
       ..textDirection = textDirection
@@ -589,6 +605,9 @@ mixin TextComponentViewModel on SingleColumnLayoutComponentViewModel {
     super.applyStyles(styles);
 
     textAlignment = styles[Styles.textAlign] ?? textAlignment;
+
+    maxLines = styles[Styles.maxLines];
+    overflow = styles[Styles.overflow] ?? TextOverflow.clip;
 
     textStyleBuilder = (attributions) {
       final baseStyle = styles[Styles.textStyle] ?? noStyleBuilder({});
@@ -644,6 +663,8 @@ mixin TextComponentViewModel on SingleColumnLayoutComponentViewModel {
           text == other.text &&
           textDirection == other.textDirection &&
           textAlignment == other.textAlignment &&
+          maxLines == other.maxLines &&
+          overflow == other.overflow &&
           selection == other.selection &&
           selectionColor == other.selectionColor &&
           highlightWhenEmpty == other.highlightWhenEmpty &&
@@ -664,6 +685,8 @@ mixin TextComponentViewModel on SingleColumnLayoutComponentViewModel {
       text.hashCode ^
       textDirection.hashCode ^
       textAlignment.hashCode ^
+      maxLines.hashCode ^
+      overflow.hashCode ^
       selection.hashCode ^
       selectionColor.hashCode ^
       highlightWhenEmpty.hashCode ^
@@ -677,6 +700,12 @@ mixin TextComponentViewModel on SingleColumnLayoutComponentViewModel {
       showComposingRegionUnderline.hashCode;
 }
 
+/// Keys to access metadata that are specific to a [TextNode].
+class TextNodeMetadata {
+  /// The [TextAlign] of the [TextNode].
+  static const String textAlign = 'textAlign';
+}
+
 /// Document component that displays hint text when its content text
 /// is empty.
 ///
@@ -685,10 +714,15 @@ class TextWithHintComponent extends StatefulWidget {
   const TextWithHintComponent({
     Key? key,
     required this.text,
+    this.inlineWidgetBuilders = const [],
     this.hintText,
+    this.hintMaxLines,
+    this.hintOverflow = TextOverflow.ellipsis,
     this.hintStyleBuilder,
     this.textAlign,
     this.textDirection,
+    this.maxLines,
+    this.overflow = TextOverflow.clip,
     required this.textStyleBuilder,
     this.metadata = const {},
     this.textSelection,
@@ -699,10 +733,19 @@ class TextWithHintComponent extends StatefulWidget {
   }) : super(key: key);
 
   final AttributedText text;
+
+  /// {@macro text_component_inline_widget_builders}
+  final InlineWidgetBuilderChain inlineWidgetBuilders;
+
   final AttributedText? hintText;
+  final int? hintMaxLines;
+  final TextOverflow hintOverflow;
   final AttributionStyleBuilder? hintStyleBuilder;
+
   final TextAlign? textAlign;
   final TextDirection? textDirection;
+  final int? maxLines;
+  final TextOverflow overflow;
   final AttributionStyleBuilder textStyleBuilder;
   final Map<String, dynamic> metadata;
   final TextSelection? textSelection;
@@ -745,14 +788,19 @@ class _TextWithHintComponentState extends State<TextWithHintComponent>
         if (widget.text.isEmpty)
           IgnorePointer(
             child: Text.rich(
-              widget.hintText?.computeTextSpan(_styleBuilder) ?? const TextSpan(text: ''),
+              widget.hintText?.computeInlineSpan(context, _styleBuilder, []) ?? const TextSpan(text: ''),
+              maxLines: widget.hintMaxLines,
+              overflow: widget.hintOverflow,
             ),
           ),
         TextComponent(
           key: _childTextComponentKey,
           text: widget.text,
+          inlineWidgetBuilders: widget.inlineWidgetBuilders,
           textAlign: widget.textAlign,
           textDirection: widget.textDirection,
+          maxLines: widget.maxLines,
+          overflow: widget.overflow,
           textStyleBuilder: widget.textStyleBuilder,
           metadata: widget.metadata,
           textSelection: widget.textSelection,
@@ -776,6 +824,8 @@ class TextComponent extends StatefulWidget {
     this.textAlign,
     this.textDirection,
     this.textScaler,
+    this.maxLines,
+    this.overflow = TextOverflow.clip,
     required this.textStyleBuilder,
     this.inlineWidgetBuilders = const [],
     this.metadata = const {},
@@ -797,12 +847,18 @@ class TextComponent extends StatefulWidget {
   /// Defaults to `MediaQuery.textScalerOf()`.
   final TextScaler? textScaler;
 
+  final int? maxLines;
+
+  final TextOverflow overflow;
+
   final AttributionStyleBuilder textStyleBuilder;
 
+  /// {@template text_component_inline_widget_builders}
   /// A Chain of Responsibility that's used to build inline widgets.
   ///
   /// The first builder in the chain to return a non-null `Widget` will be
   /// used for a given inline placeholder.
+  /// {@endtemplate}
   final InlineWidgetBuilderChain inlineWidgetBuilders;
 
   final Map<String, dynamic> metadata;
@@ -851,6 +907,16 @@ class TextComponentState extends State<TextComponent> with DocumentComponent imp
       throw Exception('Expected nodePosition of type TextPosition but received: $nodePosition');
     }
     return textLayout.getOffsetAtPosition(nodePosition);
+  }
+
+  @override
+  CaretGeometry getCaretForPosition(NodePosition nodePosition) {
+    if (nodePosition is! TextPosition) {
+      throw ArgumentError('Expected nodePosition of type TextPosition but received: $nodePosition');
+    }
+
+    // TODO: This was added for AttachmentListComponent. Implement for text.
+    throw UnimplementedError();
   }
 
   @override
@@ -1246,6 +1312,8 @@ class TextComponentState extends State<TextComponent> with DocumentComponent imp
         textAlign: widget.textAlign ?? TextAlign.left,
         textDirection: widget.textDirection ?? TextDirection.ltr,
         textScaler: widget.textScaler ?? MediaQuery.textScalerOf(context),
+        maxLines: widget.maxLines,
+        overflow: widget.overflow,
         layerBeneathBuilder: (context, textLayout) {
           return Stack(
             children: [
@@ -1584,7 +1652,11 @@ class AddTextAttributionsCommand extends EditCommand {
           node.id,
           node.copyTextNodeWith(
             text: AttributedText(
-              node.text.toPlainText(),
+              node.text.toPlainText(
+                // Don't include placeholder characters, because we're providing
+                // actual placeholders down below.
+                includePlaceholders: false,
+              ),
               node.text.spans.copy()
                 ..addAttribution(
                   newAttribution: attribution,
@@ -1712,13 +1784,18 @@ class RemoveTextAttributionsCommand extends EditCommand {
         // see that we made a change, and re-renders the text in the document.
         node = node.copyTextNodeWith(
           text: AttributedText(
-            node.text.toPlainText(),
+            node.text.toPlainText(
+              // Don't include placeholder characters, because we're providing
+              // actual placeholders down below.
+              includePlaceholders: false,
+            ),
             node.text.spans.copy()
               ..removeAttribution(
                 attributionToRemove: attribution,
                 start: range.start,
                 end: range.end,
               ),
+            Map.from(node.text.placeholders),
           ),
         );
 
@@ -2040,21 +2117,46 @@ class InsertPlainTextAtCaretCommand extends EditCommand {
       // Can't insert at caret if there is no caret.
       return;
     }
+
     final range = selection.normalize(context.document);
-    if (range.start.nodePosition is! TextNodePosition) {
-      // The effective insertion position isn't a TextNode. Fizzle.
+    if (range.start.nodeId == range.end.nodeId && range.start.nodePosition is! TextNodePosition) {
+      // Selection is in a single node, and it's not a text node. We can't insert text here.
       return;
     }
 
-    if (!range.isCollapsed) {
+    late final DocumentPosition insertionPosition;
+    if (range.isCollapsed) {
+      // Insertion position is at caret.
+      insertionPosition = selection.extent;
+    } else {
+      // Inserting text with an expanded selection should delete the currently
+      // selected content. Do that now.
       executor.executeCommand(
-        DeleteContentCommand(documentRange: range),
+        DeleteSelectionCommand(affinity: TextAffinity.upstream),
       );
+
+      final caret = context.composer.selection!.extent;
+      if (caret.nodePosition is! TextNodePosition) {
+        // After deleting an expanded selection, we ended up with a caret
+        // sitting in a non-text node. Insert a text node to accept the new
+        // text.
+        final newTextNodeId = Editor.createNodeId();
+        executor.executeCommand(
+          InsertNodeAfterNodeCommand(
+            existingNodeId: caret.nodeId,
+            newNode: ParagraphNode(id: newTextNodeId, text: AttributedText()),
+          ),
+        );
+
+        insertionPosition = DocumentPosition(nodeId: newTextNodeId, nodePosition: const TextNodePosition(offset: 0));
+      } else {
+        insertionPosition = caret;
+      }
     }
 
     executor.executeCommand(
       InsertTextCommand(
-        documentPosition: range.start,
+        documentPosition: insertionPosition,
         textToInsert: plainText,
         createdAt: createdAt,
         attributions: attributions,
@@ -2367,8 +2469,46 @@ class DefaultInsertNewlineAtCaretCommand extends BaseInsertNewlineAtCaretCommand
     DocumentPosition caretPosition,
     NodePosition caretNodePosition,
   ) {
-    if (caretNodePosition is! UpstreamDownstreamNodePosition && caretNodePosition is! TextNodePosition) {
+    final node = context.document.getNodeById(caretPosition.nodeId);
+
+    if (caretNodePosition is! UpstreamDownstreamNodePosition &&
+        caretNodePosition is! TextNodePosition &&
+        (node is! EditableDocumentNode || !node.canSplitAt(caretNodePosition))) {
       // We don't know how to deal with this kind of node.
+      return;
+    }
+
+    if (node is EditableDocumentNode) {
+      final (firstPart, secondPart) = node.splitAt(caretNodePosition, newId: newNodeId);
+
+      if (firstPart.id == node.id) {
+        // The split inserted the new node after the current node.
+        executor
+          ..executeCommand(ReplaceNodeCommand(existingNodeId: node.id, newNode: firstPart))
+          ..executeCommand(InsertNodeAfterNodeCommand(existingNodeId: node.id, newNode: secondPart))
+          ..executeCommand(
+            ChangeSelectionCommand(
+                DocumentSelection.collapsed(
+                    position: DocumentPosition(nodeId: newNodeId, nodePosition: secondPart.beginningPosition)),
+                SelectionChangeType.insertContent,
+                SelectionReason.userInteraction),
+          )
+          ..executeCommand(ChangeComposingRegionCommand(null));
+      } else {
+        // The split inserted the new node before the current node.
+        executor
+          ..executeCommand(ReplaceNodeCommand(existingNodeId: node.id, newNode: secondPart))
+          ..executeCommand(InsertNodeBeforeNodeCommand(existingNodeId: node.id, newNode: firstPart))
+          ..executeCommand(
+            ChangeSelectionCommand(
+                DocumentSelection.collapsed(
+                    position: DocumentPosition(nodeId: newNodeId, nodePosition: firstPart.endPosition)),
+                SelectionChangeType.insertContent,
+                SelectionReason.userInteraction),
+          )
+          ..executeCommand(ChangeComposingRegionCommand(null));
+      }
+
       return;
     }
 
@@ -2378,7 +2518,6 @@ class DefaultInsertNewlineAtCaretCommand extends BaseInsertNewlineAtCaretCommand
       return;
     }
 
-    final node = context.document.getNodeById(caretPosition.nodeId);
     if (caretNodePosition is TextNodePosition && node is TextNode) {
       _insertNewlineInTextNode(context, executor, node, caretPosition, caretNodePosition);
       return;

@@ -86,6 +86,8 @@ class _SpellingErrorSuggestionOverlayState
     implements SpellCheckerPopoverDelegate {
   final _suggestionToolbarOverlayController = OverlayPortalController();
 
+  var _toolbarOrientation = SpellcheckToolbarOrientation.auto;
+
   DocumentRange? _ignoredSpellingErrorRange;
 
   final _suggestionListenable = ValueNotifier<SpellingError?>(null);
@@ -173,6 +175,18 @@ class _SpellingErrorSuggestionOverlayState
   }
 
   @override
+  @Deprecated("This is a temporary behavior until we generalize the control (June 19, 2025)")
+  void setOrientation(SpellcheckToolbarOrientation orientation) {
+    if (_toolbarOrientation == orientation) {
+      return;
+    }
+
+    setState(() {
+      _toolbarOrientation = orientation;
+    });
+  }
+
+  @override
   void hideSuggestionsPopover() {
     setState(() {
       _currentSpellingSuggestions = null;
@@ -198,6 +212,10 @@ class _SpellingErrorSuggestionOverlayState
   }
 
   void _onSelectionChange() {
+    if (!mounted) {
+      return;
+    }
+
     setState(() {
       // Re-compute layout data. The layout needs to be re-computed regardless
       // of any conditions that follow this comment.
@@ -241,12 +259,20 @@ class _SpellingErrorSuggestionOverlayState
   }
 
   void _onDocumentChange(DocumentChangeLog changeLog) {
+    if (!mounted) {
+      return;
+    }
+
     // After the document changes, the currently visible suggestions
     // might not be valid anymore. Hide the popover.
     hideSuggestionsPopover();
   }
 
   void _onSpellingSuggestionsChange() {
+    if (!mounted) {
+      return;
+    }
+
     setState(() {
       // Re-compute layout data.
     });
@@ -435,14 +461,26 @@ class _SpellingErrorSuggestionOverlayState
       case TargetPlatform.iOS:
         return Follower.withAligner(
           link: widget.selectedWordLink,
-          aligner: CupertinoPopoverToolbarAligner(_boundsKey),
-          boundary: ScreenFollowerBoundary(
-            screenSize: MediaQuery.sizeOf(context),
-            devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
-          ),
+          aligner: CupertinoPopoverToolbarAligner(),
+          boundary: const ScreenFollowerBoundary(),
           child: child,
         );
       case TargetPlatform.android:
+        late final Alignment leaderAnchor;
+        late final Alignment followerAnchor;
+        late final Offset offset;
+        if (_toolbarOrientation == SpellcheckToolbarOrientation.above) {
+          // Show toolbar above.
+          leaderAnchor = Alignment.topLeft;
+          followerAnchor = Alignment.bottomLeft;
+          offset = const Offset(0, -16);
+        } else {
+          // "Auto" or explicitly "below".
+          leaderAnchor = Alignment.bottomLeft;
+          followerAnchor = Alignment.topLeft;
+          offset = const Offset(0, 16);
+        }
+
         return Stack(
           children: [
             // On Android, the user can't interact with the content
@@ -456,13 +494,10 @@ class _SpellingErrorSuggestionOverlayState
             ),
             Follower.withOffset(
               link: widget.selectedWordLink,
-              leaderAnchor: Alignment.bottomLeft,
-              followerAnchor: Alignment.topLeft,
-              offset: const Offset(0, 16),
-              boundary: ScreenFollowerBoundary(
-                screenSize: MediaQuery.sizeOf(context),
-                devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
-              ),
+              leaderAnchor: leaderAnchor,
+              followerAnchor: followerAnchor,
+              offset: offset,
+              boundary: const ScreenFollowerBoundary(),
               child: child,
             ),
           ],
@@ -473,10 +508,7 @@ class _SpellingErrorSuggestionOverlayState
           leaderAnchor: Alignment.bottomLeft,
           followerAnchor: Alignment.topLeft,
           offset: const Offset(0, 16),
-          boundary: ScreenFollowerBoundary(
-            screenSize: MediaQuery.sizeOf(context),
-            devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
-          ),
+          boundary: const ScreenFollowerBoundary(),
           child: child,
         );
     }
@@ -812,7 +844,9 @@ class _AndroidSpellingSuggestionToolbarState extends State<AndroidSpellingSugges
     return Material(
       elevation: 8,
       borderRadius: BorderRadius.circular(4),
-      color: Colors.white,
+      color: brightness == Brightness.light //
+          ? Colors.white
+          : Theme.of(context).canvasColor,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

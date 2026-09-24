@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show Icons, Colors;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,18 +21,14 @@ import 'package:super_keyboard/src/super_keyboard_unified.dart';
 class SoftwareKeyboardHeightSimulator extends StatefulWidget {
   const SoftwareKeyboardHeightSimulator({
     super.key,
-    required this.tester,
     this.isEnabled = true,
     this.enableForAllPlatforms = false,
     this.initialKeyboardState = KeyboardState.closed,
     this.keyboardHeight = _defaultKeyboardHeight,
     this.animateKeyboard = false,
+    this.renderSimulatedKeyboard = false,
     required this.child,
   });
-
-  /// Flutter's [WidgetTester], which is used to intercept platform messages
-  /// about opening/closing the keyboard.
-  final WidgetTester tester;
 
   /// Whether or not to enable the simulated software keyboard insets.
   ///
@@ -61,6 +58,10 @@ class SoftwareKeyboardHeightSimulator extends StatefulWidget {
   /// and you don't care about the animation, then pass `false` to disable the animations.
   final bool animateKeyboard;
 
+  /// Whether a fake software keyboard should be displayed in the widget tree,
+  /// on top of the [child], simulating a real OS software keyboard.
+  final bool renderSimulatedKeyboard;
+
   final Widget child;
 
   @override
@@ -69,13 +70,21 @@ class SoftwareKeyboardHeightSimulator extends StatefulWidget {
 
 class _SoftwareKeyboardHeightSimulatorState extends State<SoftwareKeyboardHeightSimulator>
     with SingleTickerProviderStateMixin {
+  static int _nextTestKeyboardId = 1;
+
+  late final String _testKeyboardId;
+
   @override
   void initState() {
     super.initState();
 
+    _testKeyboardId = "$_nextTestKeyboardId";
+    _nextTestKeyboardId += 1;
+
     if (widget.isEnabled) {
       TestSuperKeyboard.install(
-        widget.tester,
+        id: _testKeyboardId,
+        vsync: this,
         initialKeyboardState: widget.initialKeyboardState,
         fakeKeyboardHeight: widget.keyboardHeight,
         keyboardAnimationTime: widget.animateKeyboard ? const Duration(milliseconds: 600) : Duration.zero,
@@ -88,10 +97,9 @@ class _SoftwareKeyboardHeightSimulatorState extends State<SoftwareKeyboardHeight
     super.didUpdateWidget(oldWidget);
 
     if (widget.animateKeyboard != oldWidget.animateKeyboard || widget.keyboardHeight != oldWidget.keyboardHeight) {
-      TestSuperKeyboard.uninstall();
-
       TestSuperKeyboard.install(
-        widget.tester,
+        id: _testKeyboardId,
+        vsync: this,
         initialKeyboardState: widget.initialKeyboardState,
         fakeKeyboardHeight: widget.keyboardHeight,
         keyboardAnimationTime: widget.animateKeyboard ? const Duration(milliseconds: 600) : Duration.zero,
@@ -109,7 +117,7 @@ class _SoftwareKeyboardHeightSimulatorState extends State<SoftwareKeyboardHeight
 
   @override
   void dispose() {
-    TestSuperKeyboard.uninstall();
+    TestSuperKeyboard.uninstall(_testKeyboardId);
     super.dispose();
   }
 
@@ -143,13 +151,20 @@ class _SoftwareKeyboardHeightSimulatorState extends State<SoftwareKeyboardHeight
               ),
               // Display a placeholder where the keyboard would go so we
               // can verify the keyboard size in golden tests.
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                height: geometry.keyboardHeight,
-                child: const Placeholder(),
-              ),
+              if (widget.renderSimulatedKeyboard) //
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: geometry.keyboardHeight ?? 0,
+                  child: OverflowBox(
+                    alignment: Alignment.topCenter,
+                    maxHeight: widget.keyboardHeight,
+                    child: SoftwareKeyboard(
+                      height: widget.keyboardHeight,
+                    ),
+                  ),
+                ),
             ],
           ),
         );
@@ -159,41 +174,54 @@ class _SoftwareKeyboardHeightSimulatorState extends State<SoftwareKeyboardHeight
 }
 
 class TestSuperKeyboard implements SuperKeyboard {
-  static void install(
-    WidgetTester tester, {
+  static void install({
+    required String id,
+    required TickerProvider vsync,
     KeyboardState initialKeyboardState = KeyboardState.closed,
     double fakeKeyboardHeight = _defaultKeyboardHeight,
     Duration keyboardAnimationTime = const Duration(milliseconds: 600),
   }) {
     if (_instance != null) {
-      return;
+      forceUninstall();
     }
 
     _instance = TestSuperKeyboard(
-      tester,
+      id: id,
+      vsync: vsync,
       initialKeyboardState: initialKeyboardState,
       fakeKeyboardHeight: fakeKeyboardHeight,
       keyboardAnimationTime: keyboardAnimationTime,
     );
 
+    // ignore: invalid_use_of_visible_for_testing_member
     SuperKeyboard.testInstance = _instance;
   }
 
-  static void uninstall() {
-    if (_instance == null) {
+  static void uninstall(String id) {
+    if (_instance == null || _instance!.id != id) {
       return;
     }
 
     _instance!.dispose();
     _instance = null;
 
+    // ignore: invalid_use_of_visible_for_testing_member
     SuperKeyboard.testInstance = null;
+  }
+
+  static void forceUninstall() {
+    if (_instance == null) {
+      return;
+    }
+
+    uninstall(_instance!.id);
   }
 
   static TestSuperKeyboard? _instance;
 
-  TestSuperKeyboard(
-    this.tester, {
+  TestSuperKeyboard({
+    required this.id,
+    required TickerProvider vsync,
     KeyboardState initialKeyboardState = KeyboardState.closed,
     this.fakeKeyboardHeight = 400.0,
     Duration keyboardAnimationTime = const Duration(milliseconds: 600),
@@ -202,11 +230,12 @@ class TestSuperKeyboard implements SuperKeyboard {
 
     _geometry.value = MobileWindowGeometry(
       keyboardState: initialKeyboardState,
+      keyboardHeight: initialKeyboardState == KeyboardState.open ? fakeKeyboardHeight : null,
     );
 
     _keyboardHeightController = AnimationController(
       duration: keyboardAnimationTime,
-      vsync: tester,
+      vsync: vsync,
     )
       ..addListener(() {
         _geometry.value = _geometry.value.updateWith(
@@ -219,7 +248,7 @@ class TestSuperKeyboard implements SuperKeyboard {
   }
 
   void _interceptPlatformChannel() {
-    tester.interceptChannel(SystemChannels.textInput.name) //
+    TestDefaultBinaryMessengerBinding.instance.interceptChannel(SystemChannels.textInput.name) //
       ..interceptMethod(
         'TextInput.setClient',
         (methodCall) {
@@ -251,7 +280,8 @@ class TestSuperKeyboard implements SuperKeyboard {
   }
 
   void dispose() {
-    tester.binding.defaultBinaryMessenger.setMockMessageHandler(SystemChannels.textInput.name, null);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMessageHandler(SystemChannels.textInput.name, null);
     _keyboardHeightController.dispose();
   }
 
@@ -260,7 +290,11 @@ class TestSuperKeyboard implements SuperKeyboard {
     // no-op
   }
 
-  final WidgetTester tester;
+  /// An ID for this specific test keyboard instance, which is used primarily to
+  /// ensure that one test keyboard doesn't accidentally uninstall some other
+  /// test keyboard.
+  final String id;
+
   final double fakeKeyboardHeight;
 
   late final AnimationController _keyboardHeightController;
@@ -307,4 +341,207 @@ class TestSuperKeyboard implements SuperKeyboard {
   }
 }
 
+class SoftwareKeyboard extends StatelessWidget {
+  static const double keySpacing = 8;
+
+  const SoftwareKeyboard({
+    super.key,
+    double? height,
+  }) : height = height ?? _defaultKeyboardHeight;
+
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    const letterButtonBackgroundColor = Color(0xFF6D6D6E);
+    const letterButtonForegroundColor = Colors.white;
+    const controlButtonBackgroundColor = Color(0xFF4A4A4B);
+    const controlButtonForegroundColor = Colors.white;
+
+    return Container(
+      height: height,
+      color: const Color(0xDD2B2B2D),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: <Widget>[
+          Row(
+            children: _buildCharacterKeys(
+              ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+              buttonColor: letterButtonBackgroundColor,
+              characterColor: letterButtonForegroundColor,
+            ),
+          ),
+          Row(
+            children: _buildCharacterKeys(
+              ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+              buttonColor: letterButtonBackgroundColor,
+              characterColor: letterButtonForegroundColor,
+            ),
+          ),
+          Row(children: [
+            const Padding(
+              padding: EdgeInsets.only(right: 12),
+              child: _SoftwareKeyboardButton(
+                backgroundColor: controlButtonBackgroundColor,
+                child: Icon(
+                  Icons.keyboard_capslock,
+                  color: controlButtonForegroundColor,
+                  size: 16,
+                ),
+              ),
+            ),
+            ..._buildCharacterKeys(
+              ['Z', 'X', 'C', 'V', 'B', 'N', 'M'],
+              buttonColor: letterButtonBackgroundColor,
+              characterColor: letterButtonForegroundColor,
+            ),
+            const Padding(
+              padding: EdgeInsets.only(right: keySpacing),
+              child: _SoftwareKeyboardButton(
+                backgroundColor: controlButtonBackgroundColor,
+                child: Icon(
+                  Icons.backspace,
+                  color: controlButtonForegroundColor,
+                  size: 12,
+                ),
+              ),
+            ),
+          ]),
+          const Row(
+            children: [
+              Padding(
+                padding: EdgeInsets.only(right: keySpacing),
+                child: _SoftwareKeyboardButton(
+                  backgroundColor: controlButtonBackgroundColor,
+                  child: Text(
+                    '123',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: controlButtonForegroundColor,
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.only(right: keySpacing),
+                child: _SoftwareKeyboardButton(
+                  backgroundColor: controlButtonBackgroundColor,
+                  child: Icon(
+                    Icons.insert_emoticon,
+                    color: controlButtonForegroundColor,
+                    size: 16,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(right: keySpacing),
+                  child: _SoftwareKeyboardButton(
+                    backgroundColor: controlButtonBackgroundColor,
+                    child: Text(
+                      'Space',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: controlButtonForegroundColor,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.only(right: keySpacing),
+                child: _SoftwareKeyboardButton(
+                  backgroundColor: controlButtonBackgroundColor,
+                  child: Text(
+                    'Return',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: controlButtonForegroundColor,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildCharacterKeys(
+    List<String> characters, {
+    required Color buttonColor,
+    required Color characterColor,
+  }) {
+    return characters
+        .map<Widget>(
+          (x) => Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(right: keySpacing),
+              child: _SoftwareKeyboardButton(
+                backgroundColor: buttonColor,
+                child: Text(
+                  x,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: characterColor,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        )
+        .toList();
+  }
+}
+
+/// A [SoftwareKeyboardScaffold] button, e.g., a character, space bar, action button.
+class _SoftwareKeyboardButton extends StatelessWidget {
+  const _SoftwareKeyboardButton({
+    // ignore: unused_element_parameter
+    super.key,
+    required this.backgroundColor,
+    // ignore: unused_element_parameter
+    this.borderRadius = const BorderRadius.all(Radius.circular(4)),
+    // ignore: unused_element_parameter
+    this.padding = const EdgeInsets.symmetric(
+      vertical: 14,
+      horizontal: 6,
+    ),
+    required this.child,
+  });
+
+  final Color backgroundColor;
+  final EdgeInsets padding;
+  final BorderRadius borderRadius;
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: borderRadius,
+      ),
+      padding: padding,
+      alignment: Alignment.center,
+      child: child,
+    );
+  }
+}
+
 const _defaultKeyboardHeight = 300.0;
+
+extension on TestDefaultBinaryMessengerBinding {
+  PlatformMessageHandler interceptChannel(String channel) {
+    final handler = PlatformMessageHandler();
+
+    defaultBinaryMessenger.setMockMessageHandler(channel, (message) async {
+      return await handler.handleMessage(message);
+    });
+
+    return handler;
+  }
+}

@@ -177,6 +177,11 @@ class SpellingAndGrammarPlugin extends SuperEditorPlugin {
 
   final _popoverController = SpellCheckerPopoverController();
 
+  @Deprecated("This is a temporary behavior until we generalize the control (June 19, 2025)")
+  void setToolbarOrientation(SpellcheckToolbarOrientation orientation) => _popoverController.setOrientation(
+        orientation,
+      );
+
   @override
   List<SingleColumnLayoutStylePhase> get appendedStylePhases => [_styler];
 
@@ -208,7 +213,7 @@ class SpellingAndGrammarPlugin extends SuperEditorPlugin {
     _reaction.dispose();
     _contentTapHandler?.editor = null;
 
-    editor.context.remove(spellingErrorSuggestionsKey);
+    editor.context.remove(spellingErrorSuggestionsKey, _spellingErrorSuggestions);
     _spellingErrorSuggestions.clear();
   }
 }
@@ -451,11 +456,131 @@ class SpellingAndGrammarReaction implements EditReaction {
         continue;
       }
 
-      if (change is TextDeletedEvent) {
-        _clearErrorForDeletedRange(change);
+      if (change is TextInsertionEvent) {
+        _updateExistingErrorsAfterTextInsertion(change);
+      } else if (change is TextDeletedEvent) {
+        _updateExistingErrorsAfterTextDeletion(change);
       }
 
       _scheduleSpellingAndGrammarCheck(textNode);
+    }
+  }
+
+  void _updateExistingErrorsAfterTextInsertion(TextInsertionEvent change) {
+    final textPushbackStart = change.offset;
+    final pushbackAmount = change.text.length;
+    final previousErrors = _styler.getErrorsForNode(change.nodeId);
+    final updatedErrors = <TextError>{};
+
+    for (final previousError in previousErrors) {
+      if (previousError.range.start < textPushbackStart) {
+        // This error wasn't impacted by the text insertion.
+        updatedErrors.add(previousError);
+        continue;
+      }
+
+      // Push this error back by the insertion amount.
+      updatedErrors.add(
+        TextError(
+          nodeId: previousError.nodeId,
+          type: previousError.type,
+          value: previousError.value,
+          range: TextRange(
+            start: previousError.range.start + pushbackAmount,
+            end: previousError.range.end + pushbackAmount,
+          ),
+        ),
+      );
+    }
+
+    _styler.clearErrorsForNode(change.nodeId);
+    _styler.addErrors(change.nodeId, updatedErrors);
+
+    // Update bounds on spelling correction suggestion bounds, which are separate from the
+    // error bounds.
+    final previousSuggestions = _suggestions.getSuggestionsForNode(change.nodeId);
+    if (previousSuggestions.isNotEmpty) {
+      final updatedSuggestions = <TextRange, SpellingError>{};
+      for (final entry in previousSuggestions.entries) {
+        final range = entry.key;
+        if (range.start < textPushbackStart) {
+          // This suggestion wasn't impacted by the text insertion.
+          updatedSuggestions[range] = entry.value;
+          continue;
+        }
+
+        // Push this suggestion back by the insertion amount.
+        final shifted = TextRange(
+          start: range.start + pushbackAmount,
+          end: range.end + pushbackAmount,
+        );
+        updatedSuggestions[shifted] = entry.value.copyWith(range: shifted);
+      }
+      _suggestions.putSuggestions(change.nodeId, updatedSuggestions);
+    }
+  }
+
+  void _updateExistingErrorsAfterTextDeletion(TextDeletedEvent change) {
+    // Remove errors that overlap the deleted text.
+    _clearErrorForDeletedRange(change);
+
+    // Find all downstream errors and move them up by the deletion amount.
+    final textPushUpStart = change.offset + change.deletedText.length;
+    final pushUpAmount = change.deletedText.length;
+    final previousErrors = _styler.getErrorsForNode(change.nodeId);
+    final updatedErrors = <TextError>{};
+
+    for (final previousError in previousErrors) {
+      if (previousError.range.start < textPushUpStart) {
+        // This error wasn't impacted by the text insertion.
+        updatedErrors.add(previousError);
+        continue;
+      }
+
+      // Push this error up by the deletion amount.
+      updatedErrors.add(
+        TextError(
+          nodeId: previousError.nodeId,
+          type: previousError.type,
+          value: previousError.value,
+          range: TextRange(
+            start: previousError.range.start - pushUpAmount,
+            end: previousError.range.end - pushUpAmount,
+          ),
+        ),
+      );
+    }
+
+    _styler.clearErrorsForNode(change.nodeId);
+    _styler.addErrors(change.nodeId, updatedErrors);
+
+    // Update bounds on spelling correction suggestion bounds, which are separate from the
+    // error bounds.
+    final previousSuggestions = _suggestions.getSuggestionsForNode(change.nodeId);
+    if (previousSuggestions.isNotEmpty) {
+      // The deleted text spans [change.offset, textPushUpStart).
+      final updatedSuggestions = <TextRange, SpellingError>{};
+      for (final entry in previousSuggestions.entries) {
+        final range = entry.key;
+        if ((range.start >= change.offset && range.start <= textPushUpStart) ||
+            (range.end >= change.offset && range.end <= textPushUpStart)) {
+          // The word was partially or entirely deleted. Drop the suggestion.
+          continue;
+        }
+        if (range.start < textPushUpStart) {
+          // This suggestion wasn't impacted by the text deletion.
+          updatedSuggestions[range] = entry.value;
+          continue;
+        }
+
+        // Push this suggestion up by the deletion amount.
+        final shifted = TextRange(
+          start: range.start - pushUpAmount,
+          end: range.end - pushUpAmount,
+        );
+        updatedSuggestions[shifted] = entry.value.copyWith(range: shifted);
+      }
+      _suggestions.putSuggestions(change.nodeId, updatedSuggestions);
     }
   }
 

@@ -1,8 +1,184 @@
-## [0.3.0-dev.25] - June 6, 2025
+## [0.3.0-dev.52]
+### June 10, 2026
+* ADJUSTMENT: Upgraded `attributed_text` to `0.4.6`.
+* FEATURE: Add `AttachmentListNode`, designed for chat UX.
+* ADJUSTMENT: Introduce `EditableDocumentNode` as an abstraction for IME comms and content 
+  editing for any node type.
+* FIX: Don't run desktop caret ticker or timer when running on mobile.
+* ADJUSTMENT: Adjust Markdown image parsing to also handle syntax where image caption appears
+  on the line directly above image.
+
+## [0.3.0-dev.51]
+### Mar 27, 2026
+* ADJUSTMENT: Upgraded `super_keyboard` dependency to `0.4.0`.
+
+## [0.3.0-dev.50]
+### Feb 24, 2026
+* FIX: `SuperMessage` Android and iOS popover toolbars now dismiss themselves after tapping a button.
+
+## [0.3.0-dev.49]
+### Feb 19, 2026
+* ADJUSTMENT: Pattern tags, stable tags, and action tags now support multiple triggers in the same editor.
+
+## [0.3.0-dev.48]
+### Jan 19, 2026
+* FEATURE: Added `BitmapImageNode`, which holds in-memory images, supplementing `ImageNode`, which only handles URLs.
+* FIX: Get builds on web working again by conditionally exporting test dependencies.
+
+## [0.3.0-dev.47]
+### Dec 22, 2025
+* FIX: When restoring selection after re-gaining focus, correctly report the `SelectionChangeType`.
+
+## [0.3.0-dev.46]
+### Dec 13, 2025
+* FIX: When pasting structured content, the first pasted node was getting lost.
+* FIX: When pasting structured content, if pasting a single non-text node, an extra blank paragraph was retained above it.
+* ADJUSTMENT: Implements content equivalency check for `TableBlockNode`.
+
+## [0.3.0-dev.45]
+### Dec 10, 2025
+* ADJUSTMENT: Make Android mobile handles use an eager gesture recognizer so that things like
+  drawers don't beat the handle drag gestures.
+* FIX: `SuperEditor` - When the Android handles change the selection, `SuperEditor` now passes
+  the correct "selection change type". Previously it was always hard-coded to "push caret".
+* FIX: `SuperMessage` - Re-render visual styles when the incoming `styles` property changes.
+
+## [0.3.0-dev.44]
+### Dec 8, 2025
+* FEATURE: Add mobile handle, magnifier, and toolbar to `SuperMessage`.
+* BREAKING: Rename `DocumentKeyboardAction` to `SuperEditorKeyboardAction`, also created a different definition 
+  for `DocumentKeyboardAction`
+* ADJUSTMENT: Moved a bunch of test tools from `/test` and `/test_goldens` directory into the `/lib`.
+
+## [0.3.0-dev.43]
+### Dec 2, 2025
+* FIX: `ImeFocusPolicy` wasn't unregistering its focus listener on disposal. This could result in a
+  defunct `ImeFocusPolicy` responding to focus changes as if it still existed, interfering with a new,
+  visible `SuperEditor`.
+
+## [0.3.0-dev.42]
+### Nov 26, 2025
+* ADJUSTMENT: `MarkdownTableComponent`s now let you specify a column width policy, and a fit policy.
+* FEATURE: Added a `GlobalScrollLock` to prevent two-dimensional scrolling with trackpad and Magic Mouse
+  when the user expects only a single axis to scroll. E.g., scrolling a document vertically vs scrolling
+  a table component horizontally.
+  * Used by `SingleAxisTrackpadAndWheelScroller` to implement single-axis trackpad and scroll wheel scrolling.
+  * Override your existing gesture-based scrollables with a `DeferToTrackpadsAndMouseWheelsScrollBehavior` to
+    get them to defer to the `GlobalScrollLock`, too.
+
+## [0.3.0-dev.41]
+### Nov 24, 2025
+* BREAKING: Centralized all `SuperEditor` IME connections. This change was made in an attempt to fix
+            some non-reproducible issues where the IME keyboard would lose connection to a `SuperEditor`.
+   * To upgrade to this version, you need to give each of your `SuperEditor` widgets a unique `inputRole`.
+     The specific value of the `inputRole` doesn't matter, so long as different `SuperEditor`s in your app
+     use different values.
+* BREAKING: Moved all `super_editor_quill` code into `super_editor`. Will now
+  deprecate `super_editor_quill` in favor of just using `super_editor`.
+* FEATURE: Create a `SuperMessage` widget, which is an intrinsically sized document, like a
+  `SuperReader` with intrinsic sizing and no scrolling. Made for chat use-cases.
+
+## [0.3.0-dev.40]
+### Nov 13, 2025
+* BREAKING: Moved all `super_editor_markdown` code into `super_editor`. Will now
+   deprecate `super_editor_markdown` in favor of just using `super_editor`.
+
+## [0.3.0-dev.39]
+### Nov 13, 2025
+* FIX: `MessagePageScaffold` bottom sheet animation glitches fixed.
+* ADJUSTMENT: `MessagePageScaffold` now has an optional maximum intrinsic height when 
+   not in "expanded" mode.
+* FIX: When an `Editable` or listener responding to an `Editable` can now immediately 
+   submit `Editor` requests without blowing up.
+* ADJUSTMENT: Don't require a `MutableDocument` or `MutableDocumentComposer` when calling
+   `createDefaultEditor()`.
+* FIX: Move remaining `OverlayController.show()` calls to post frame callbacks.
+
+## [0.3.0-dev.38]
+### Nov 9, 2025
+* BREAKING, FIX: Rework `SuperEditorPlugin` lifecycle because we discovered that when
+   one `SuperEditor` widget gets replaced by another, the new widget runs `initState()`
+   before the old widget runs `dispose()`. This resulted in plugins ending up in a detached
+   state when they should have been attached. This release adds some reference counting
+   so that detachment only happens when it truly should.
+* BREAKING, ADJUSTMENT: Related to the plugin lifecycle work, `EditContext.remove()` was
+   adjusted to prevent accidentally removing a resource that was just added. The API change
+   now expects you to pass the key to remove, and the value you want to remove for that key.
+   If the current value doesn't match what is provided, then the removal doesn't happen.
+
+## [0.3.0-dev.37]
+### Nov 5, 2025
+* ADJUSTMENT: Upgrade `super_keyboard` to `v0.3.0`.
+* ADJUSTMENT: Upgrade `follow_the_leader` to `v0.5.2`.
+
+## [0.3.0-dev.36]
+### Oct 29, 2025
+* ADJUSTMENT: Change Android toolbar to look like latest Android OS version.
+* FIX: When loading a document that contains text with tag triggers, e.g. "/",
+       don't attempt to compose tags when placing the caret near the trigger.
+
+## [0.3.0-dev.35]
+### Oct 7, 2025
+* FIX: Detach plugins in `SuperEditor` `dispose()`.
+* FIX: Crash when pushing route with `delegatedTransition`.
+
+## [0.3.0-dev.34]
+### Sept 23, 2025
+* FIX: `MessagePageScaffold` fix its `Element` so that subtrees correctly activate and deactivate.
+* FIX: `KeyboardPanelScaffold` under certain conditions retained toolbar space when toolbar wasn't visible.
+* FIX: `KeyboardScaffoldSafeArea` handle possibility that the safe area content is below the bottom of the screen.
+* FIX: A couple places where `OverlayController.show()` are called were moved to post frame callbacks.
+
+## [0.3.0-dev.33]
+### Aug 27, 2025
+* ADJUSTMENT: Upgrade `attributed_text` dependency to `v0.4.5`. 
+
+## [0.3.0-dev.32]
+### Aug 27, 2025
+* FIX: `HintTextComponent` now uses its given inline widget builders.
+
+## [0.3.0-dev.31]
+### Aug 26, 2025
+* FEATURE: Block/Markdown Tables
+   * Created a table node that holds styled text (no internal blocks), and supports upstream/downstream selection.
+   * Parses a table node from Markdown, with super_editor_markdown 0.1.9.
+   * Visual component for displaying Markdown tables.
+* FIX: Placeholder bug when adding/removing attributions.
+* FIX: No longer hides toolbar when releasing a long press in an editor.
+* ADJUSTMENT: Publicly export ReadOnlyTaskComponentBuilder.
+
+## [0.3.0-dev.30]
+### Aug 26, 2025
+Messed up release from wrong branch.
+
+## [0.3.0-dev.29]
+### July 27, 2025
+ * FEATURE: Serialize `Document`s to HTML.
+
+## [0.3.0-dev.28]
+### July 22, 2025
+ * FIX: Inserting character (via IME) with a block node and text selected, now correctly deletes the selected content
+   before inserting the new character.
+
+## [0.3.0-dev.27]
+### July 10, 2025
+Locked down the following versions to avoid unexpected Pub upgrades:
+ * `follow_the_leader`: `v0.0.4.+8`
+ * `overlord`: `v0.0.3+5`
+
+## [0.3.0-dev.26]
+### July 7, 2025
+ * FEATURE: Custom underline configuration
+ * FEATURE: Fade-In content for AI/GPT
+ * BREAKING (Behavior): `SuperReader` shortcuts now run on a down-event instead of up-event
+
+## [0.3.0-dev.25]
+### June 6, 2025
  * FIX: Crash when connecting to IME (because Flutter broke everything with latest release).
  * ADJUSTMENT: Added a couple methods to the spelling and grammar plugin for working with spelling errors.
 
-## [0.3.0-dev.24] - May 26, 2025
+## [0.3.0-dev.24]
+### May 26, 2025
  * FIX: Text is duplicated when typing with styles applied.
  * FIX: Ordered list item numerals are mis-aligned with content text.
  * FIX: Toolbar disappears after user presses "Select All", preventing selection of "copy" or "paste".
@@ -11,31 +187,38 @@
    glitch on Android due to an app mishandling the Android lifecycle/permission requirements.
  * FIX: Editor overlays obscure everything below them when using Dev Tools with layout outlines.
 
-## [0.3.0-dev.23] - Apr 3, 2025
+## [0.3.0-dev.23]
+### Apr 3, 2025
  * FIX: iOS native toolbar "select all" now selects all document content instead of just the paragraph.
  * FIX: Pressing `enter` to split list items works again.
  * ADJUSTMENT: Prevent Flutter's invalidation of widget span layout just because the widget
    changes - instead we delegate to Flutter's standard render object layout invalidation mechanism.
 
-## [0.3.0-dev.22] - Mar 28, 2025
+## [0.3.0-dev.22]
+### Mar 28, 2025
  * FIX: `MessagePageScaffold` - Prevent possible negative layout constraints on bottom sheet.
 
-## [0.3.0-dev.21] - Mar 27, 2025
+## [0.3.0-dev.21]
+### Mar 27, 2025
  * FEATURE: Chat - Added a `MessagePageScaffold` to create chat pages with a bottom mounted editor.
  * FEATURE: List items support inline widgets.
  * FIX: Super Reader - Crash when rotating phone with an expanded selection.
 
-## [0.3.0-dev.20] - Mar 7, 2025
+## [0.3.0-dev.20]
+### Mar 7, 2025
  * FIX: Keyboard safe area rare layout exception due to dirty ancestor layout.
 
-## [0.3.0-dev.19] - Feb 11, 2025
+## [0.3.0-dev.19]
+### Feb 11, 2025
  * FIX: Immutability error in the spelling and grammar styler.
  * ADJUSTMENT: Upgrade to `attributed_text` `v0.4.4` (with some fixes to inline placeholders).
 
-## [0.3.0-dev.18] - Jan 30, 2025
+## [0.3.0-dev.18]
+### Jan 30, 2025
  * ADJUSTMENT: Upgrade to `attributed_text` `v0.4.3` (with fixes to per-character lookup).
 
-## [0.3.0-dev.17] - Jan 28, 2025
+## [0.3.0-dev.17]
+### Jan 28, 2025
  * FEATURE: Inline widgets for `SuperTextField`.
  * FIX: `SuperEditor`: Selecting text with inline widgets and toggling styles deleted the inline widgets.
  * FIX: Caret place wrong with RTL languages.
@@ -43,18 +226,22 @@
  * FIX: Backspace to un-indent on Web.
  * ADJUSTMENT: Tasks are rendered by default in `SuperReader`.
 
-## [0.3.0-dev.16] - Jan 24, 2025
+## [0.3.0-dev.16]
+### Jan 24, 2025
  * FIX: `KeyboardScaffoldSafeArea` in rare circumstances was trying to use `NaN` for bottom insets.
  * FIX: On Safari/Firefox, double tapping on text closing the IME connection.
 
-## [0.3.0-dev.15] - Jan 17, 2025
+## [0.3.0-dev.15]
+### Jan 17, 2025
  * FEATURE: Spellcheck for mobile (when using the `super_editor_spellcheck` plugin).
  * ADJUSTMENT: Upgrade to `attributed_text` `v0.4.2` (with some fixes to inline placeholders).
 
-## [0.3.0-dev.14] - Jan 14, 2025
+## [0.3.0-dev.14]
+### Jan 14, 2025
  * FIX: `KeyboardScaffoldSafeArea` breaks and defers to `MediaQuery` when there's only one in the tree.
 
-## [0.3.0-dev.13] - Jan 10, 2025
+## [0.3.0-dev.13]
+### Jan 10, 2025
  * BREAKING: All `DocumentNode`s are now immutable. To change a node, it must be copied and replaced.
  * BREAKING: Newline insertion behavior is now configurable.
    * All newlines are inserted with explicit `EditRequest`s, e.g., `InsertNewlineRequest`, `InsertSoftNewlineRequest`.
@@ -69,7 +256,8 @@
  * ADJUSTMENT: iOS tap word snapping is less aggressive.
  * ADJUSTMENT: Upgraded `attributed_text` dependency to `v0.4.1`.
 
-## [0.3.0-dev.12] - Dec 23, 2024
+## [0.3.0-dev.12]
+### Dec 23, 2024
  * FEATURE: Added support for inline widgets.
  * FEATURE: Created a `ClearDocumentRequest`, which deletes all content and moves caret to the start.
  * FIX: Web - option + arrow selection changes.
@@ -79,7 +267,8 @@
  * ADJUSTMENT: `getDocumentPositionAfterExpandedDeletion` returns `null` for collapsed selections.
  * ADJUSTMENT: `TaskNode` checkbox sets visual density based on `ThemeData.visualDensity`.
 
-## [0.3.0-dev.11] - Nov 26, 2024
+## [0.3.0-dev.11]
+### Nov 26, 2024
  * FEATURE: Add an (optional) tap handler that automatically inserts empty paragraph
    when user taps at the end of the document.
  * FIX: `KeyboardScaffoldSafeArea` now initializes its insets in a way that works with
@@ -87,7 +276,8 @@
  * FIX: Honor the Android handle builders in the Android controls controller.
  * ADJUSTMENT: Upgraded versions for a number of dependencies.
 
-## [0.3.0-dev.10] - Nov 18, 2024
+## [0.3.0-dev.10]
+### Nov 18, 2024
  * FEATURE: Created `KeyboardPanelScaffold` and `KeyboardScaffoldSafeArea` to aid with
    implementing mobile phone messaging and chat experiences.
  * FEATURE: Added ability to show the iOS native context popover toolbar when
@@ -102,31 +292,38 @@
  * ADJUSTMENT: Remove custom gesture handlers in `SuperEditor` and `SuperReader`
    and utilize Flutter's built-in behaviors.
 
-## [0.3.0-dev.9] - Sept 26, 2024
+## [0.3.0-dev.9]
+### Sept 26, 2024
  * FEATURE: Indent for blockquotes.
 
-## [0.3.0-dev.8] - Sept 24, 2024
+## [0.3.0-dev.8]
+### Sept 24, 2024
  * ADJUSTMENT: Change mobile caret overlays to use `Timer`s instead of `Ticker`s
    to prevent frame churn.
 
-## [0.3.0-dev.7] - Sept 24, 2024
+## [0.3.0-dev.7]
+### Sept 24, 2024
  * ADJUSTMENT: Change `super_text_layout` dependency from v0.1.13 to v0.1.14.
 
-## [0.3.0-dev.6] - Sept 15, 2024
+## [0.3.0-dev.6]
+### Sept 15, 2024
  * FIX: Don't cut off iOS drag handles in `SuperEditor`.
  * ADJUSTMENT: Increase iOS drag handle interaction area in `SuperTextField`.
 
-## [0.3.0-dev.5] - Aug 27, 2024
+## [0.3.0-dev.5]
+### Aug 27, 2024
  * FEATURE: Add configurable underlines to `TextWithHintComponent`.
  * ADJUSTMENT: Increase the types of attributions that are automatically extended when typing immediately after those attributions.
  * ADJUSTMENT: Convert floating cursor geometry to document coordinates.
  * FIX: Retain desired composing attributions when collapsing an expanded selection.
  * FIX: (Android) auto-scroll when selection changes.
 
-## [0.3.0-dev.4] - Aug 17, 2024
+## [0.3.0-dev.4]
+### Aug 17, 2024
  * Package metadata update - no functional changes.
 
-## [0.3.0-dev.3] - Aug 16, 2024
+## [0.3.0-dev.3]
+### Aug 16, 2024
  * DEPENDENCY: Upgraded `super_text_layout` to `v0.1.11`.
  * BREAKING: Remove `nodes` list from `Document` API in preparation for immutable `Document`s.
  * BREAKING: When inserting new nodes, make copies of the provided nodes instead of
@@ -148,7 +345,8 @@
    list item styles.
  * FIX: Horizontal drag and editor scrolling.
 
-## [0.3.0-dev.2] - July 2, 2024
+## [0.3.0-dev.2]
+### July 2, 2024
  * DEPENDENCY: Upgraded `attributed_text` to `v0.3.2`.
  * FEATURE: Tasks can now be indented.
  * FEATURE: Can convert a paragraph to a task.
@@ -160,7 +358,8 @@
  * FIX: Crash in linkification reaction.
  * FIX: Crash in `SelectedTextColorStrategy`.
 
-## [0.3.0-dev.1] - June 10, 2024
+## [0.3.0-dev.1]
+### June 10, 2024
 MAJOR UPDATE: First taste of the new editor pipeline. 
 
 This is a dev release so that you can begin to see the changes coming in the next major version. 
@@ -176,20 +375,25 @@ In addition to the major feature work, we've made hundreds of little adjustments
 
 We expect a steady stream of dev releases from this point forward, until we reach `v0.3.0`.
 
-## [0.2.6] - May 28, 2023
+## [0.2.6]
+### May 28, 2023
  * FEATURE: `SuperReader` now launches URLs when tapping a link (#1151)
  * FIX: `SuperEditor` now correctly handles "\n" newlines reported by Android IME deltas (#1086)
 
-## [0.2.6-dev.1] - May 28, 2023
+## [0.2.6-dev.1]
+### May 28, 2023
 * The same as v0.2.6+1, but compatible with Flutter `master`
 
-## [0.2.5] - May 12, 2023:
+## [0.2.5]
+### May 12, 2023:
  * Add support for Dart 3 and Flutter 3.10
 
-## [0.2.4-dev.1] - May 08, 2023: 
+## [0.2.4-dev.1]
+### May 08, 2023: 
  * The same as v0.2.4+1, but compatible with Flutter `master`
 
-## [0.2.4] - May 08, 2023:
+## [0.2.4]
+### May 08, 2023:
  * FEATURE: `SuperEditor` includes a built-in concept of a "task"
  * FEATURE: `SuperEditor` links open on tap, when in "interaction mode"
  * FEATURE: `SuperEditor`, `SuperReader`, `SuperTextField` all respect `MediaQuery` text scale
@@ -211,13 +415,16 @@ We expect a steady stream of dev releases from this point forward, until we reac
  * FIX: `SuperTextField` handle numpad ENTER same as regular ENTER
  * FIX: `SuperTextField` when user taps to stop scroll momentum, don't change the selection
 
-## [0.2.3-dev.1] - Nov 11, 2022: SuperReader, Bug Fixes (pre-release)
+## [0.2.3-dev.1]
+### Nov 11, 2022: SuperReader, Bug Fixes (pre-release)
  * The same as v0.2.3+1, but compatible with Flutter `master`
 
-## [0.2.3+1] - Nov, 2022: Pub.dev listing updates
+## [0.2.3+1]
+### Nov, 2022: Pub.dev listing updates
  * No functional changes
 
-## [0.2.3] - Nov, 2022: SuperReader, Bug Fixes
+## [0.2.3]
+### Nov, 2022: SuperReader, Bug Fixes
  * FEATURE: SuperReader - Created a `SuperReader` for read-only documents (0424ff1c6695629d2dba8214a950d261a3002b02)
  * FEATURE: SuperEditor - Simulate IME text input for tests (3b67328722288d9c31ac52bed1bce4a550868e58)
  * FEATURE: SuperEditor - linkify pasted text (397e373c3f53844b7b7e644c6dccbe7a7c02b822)
@@ -250,20 +457,24 @@ We expect a steady stream of dev releases from this point forward, until we reac
  * FIX: SuperEditor - Typing lag in large documents (ae571decde5884fd246f858754dfc71b4e4fabc5)
 
 
-## [0.2.2] - July, 2022: Desktop IME
+## [0.2.2]
+### July, 2022: Desktop IME
  * Use the input method engine (IME) on Desktop (previously only available on mobile)
  * A number of `SuperTextField` fixes and improvements. These changes are part of the path to the next release, which is focused on stabilizing `SuperTextField`.
 
-## [0.2.1] - ~July, 2022: Desktop IME~ (Removed from pub)
+## [0.2.1]
+### ~July, 2022: Desktop IME~ (Removed from pub)
  * Use the input method engine (IME) on Desktop (previously only available on mobile)
  * A number of `SuperTextField` fixes and improvements. These changes are part of the path to the next release, which is focused on stabilizing `SuperTextField`.
 
-## [0.2.0] - Feb, 2022: Mobile Support
+## [0.2.0]
+### Feb, 2022: Mobile Support
  * Mobile document editing
  * Mobile text field editing
  * More document style controls
 
-## [0.1.0] - June 3, 2021
+## [0.1.0]
+### June 3, 2021
 
 The first release of Super Editor.
 

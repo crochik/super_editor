@@ -1,14 +1,16 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_test_robots/flutter_test_robots.dart';
 import 'package:flutter_test_runners/flutter_test_runners.dart';
 import 'package:super_editor/super_editor.dart';
 import 'package:super_editor/super_editor_test.dart';
+import 'package:super_keyboard/test/keyboard_simulator.dart';
 import 'package:super_text_layout/super_text_layout.dart';
 
 import '../../test_runners.dart';
 import '../../test_tools.dart';
-import '../supereditor_test_tools.dart';
 
 void main() {
   group("SuperEditor > iOS > overlay controls >", () {
@@ -23,7 +25,7 @@ void main() {
       expect(SuperEditorInspector.isMobileToolbarVisible(), isFalse);
     });
 
-    testWidgetsOnIos("shows toolbar when tapping on caret", (tester) async {
+    testWidgetsOnIos("toggles toolbar when tapping on caret (with software keyboard)", (tester) async {
       await _pumpSingleParagraphApp(tester);
 
       // Place the caret at the end of a word, because iOS snaps the caret
@@ -39,6 +41,101 @@ void main() {
 
       // Ensure that the toolbar is visible.
       expect(SuperEditorInspector.isMobileToolbarVisible(), isTrue);
+      expect(SuperEditorInspector.isMobileMagnifierVisible(), isFalse);
+
+      // Tap on the caret again, to toggle the toolbar off.
+      await tester.tapInParagraph("1", 207);
+
+      // Ensure that the toolbar is hidden.
+      expect(SuperEditorInspector.isMobileToolbarVisible(), isFalse);
+      expect(SuperEditorInspector.isMobileMagnifierVisible(), isFalse);
+    });
+
+    testWidgetsOnIos("hides toolbar when IME connection is closed (with software keyboard)", (tester) async {
+      await _pumpSingleParagraphApp(tester);
+
+      // Place the caret at the end of a word, because iOS snaps the caret
+      // to word boundaries by default.
+      await tester.tapInParagraph("1", 207);
+
+      // Ensure all controls are hidden.
+      expect(SuperEditorInspector.isMobileMagnifierVisible(), isFalse);
+      expect(SuperEditorInspector.isMobileToolbarVisible(), isFalse);
+
+      // Tap again on the caret.
+      await tester.tapInParagraph("1", 207);
+
+      // Ensure that the toolbar is visible.
+      expect(SuperEditorInspector.isMobileToolbarVisible(), isTrue);
+      expect(SuperEditorInspector.isMobileMagnifierVisible(), isFalse);
+
+      // Take the IME connection away from Super Editor. The best we can do to
+      // simulate this is to move the focus somewhere else. In practice, this is
+      // how it actually occurs. It's not obvious under which circumstances the OS
+      // forcibly reclaims the IME, or how we should simulate that in tests.
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pump();
+      await tester.pump();
+
+      // Ensure that the toolbar is hidden.
+      expect(SuperEditorInspector.isMobileToolbarVisible(), isFalse);
+      expect(SuperEditorInspector.isMobileMagnifierVisible(), isFalse);
+    });
+
+    testWidgetsOnIos("toggles toolbar when tapping on caret (with hardware keyboard)", (tester) async {
+      await _pumpSingleParagraphApp(tester, simulateSoftwareKeyboardAppearance: false);
+
+      // Place the caret at the end of a word, because iOS snaps the caret
+      // to word boundaries by default.
+      await tester.tapInParagraph("1", 207);
+
+      // Ensure all controls are hidden.
+      expect(SuperEditorInspector.isMobileMagnifierVisible(), isFalse);
+      expect(SuperEditorInspector.isMobileToolbarVisible(), isFalse);
+
+      // Tap again on the caret.
+      await tester.tapInParagraph("1", 207);
+
+      // Ensure that the toolbar is visible.
+      expect(SuperEditorInspector.isMobileToolbarVisible(), isTrue);
+      expect(SuperEditorInspector.isMobileMagnifierVisible(), isFalse);
+
+      // Tap on the caret again, to toggle the toolbar off.
+      await tester.tapInParagraph("1", 207);
+
+      // Ensure that the toolbar is hidden.
+      expect(SuperEditorInspector.isMobileToolbarVisible(), isFalse);
+      expect(SuperEditorInspector.isMobileMagnifierVisible(), isFalse);
+    });
+
+    testWidgetsOnIos("hides toolbar when IME connection is closed (with hardware keyboard)", (tester) async {
+      await _pumpSingleParagraphApp(tester, simulateSoftwareKeyboardAppearance: false);
+
+      // Place the caret at the end of a word, because iOS snaps the caret
+      // to word boundaries by default.
+      await tester.tapInParagraph("1", 207);
+
+      // Ensure all controls are hidden.
+      expect(SuperEditorInspector.isMobileMagnifierVisible(), isFalse);
+      expect(SuperEditorInspector.isMobileToolbarVisible(), isFalse);
+
+      // Tap again on the caret.
+      await tester.tapInParagraph("1", 207);
+
+      // Ensure that the toolbar is visible.
+      expect(SuperEditorInspector.isMobileToolbarVisible(), isTrue);
+      expect(SuperEditorInspector.isMobileMagnifierVisible(), isFalse);
+
+      // Take the IME connection away from Super Editor. The best we can do to
+      // simulate this is to move the focus somewhere else. In practice, this is
+      // how it actually occurs. It's not obvious under which circumstances the OS
+      // forcibly reclaims the IME, or how we should simulate that in tests.
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pump();
+      await tester.pump();
+
+      // Ensure that the toolbar is hidden.
+      expect(SuperEditorInspector.isMobileToolbarVisible(), isFalse);
       expect(SuperEditorInspector.isMobileMagnifierVisible(), isFalse);
     });
 
@@ -131,6 +228,41 @@ void main() {
       // Ensure that all controls are now hidden.
       expect(SuperEditorInspector.isMobileToolbarVisible(), isFalse);
       expect(SuperEditorInspector.isMobileMagnifierVisible(), isFalse);
+    });
+
+    testWidgetsOnIos("shows toolbar when long pressing on an empty paragraph and hides it after typing",
+        (tester) async {
+      await tester //
+          .createDocument()
+          .withSingleEmptyParagraph()
+          .pump();
+
+      // The decision about showing the toolbar depends on the keyboard visibility.
+      // Simulate the keyboard being visible immediately after the IME is connected.
+      TestSuperKeyboard.install(id: '1', vsync: tester, keyboardAnimationTime: Duration.zero);
+      addTearDown(() => TestSuperKeyboard.uninstall('1'));
+
+      // Ensure the toolbar is not visible.
+      expect(SuperEditorInspector.isMobileToolbarVisible(), isFalse);
+
+      // Long press, this shouldn't show the toolbar.
+      final gesture = await tester.longPressDownInParagraph('1', 0);
+
+      // Ensure the toolbar is not visible yet.
+      expect(SuperEditorInspector.isMobileToolbarVisible(), isFalse);
+
+      // Release the finger.
+      await gesture.up();
+      await tester.pump();
+
+      // Ensure the toolbar is visible.
+      expect(SuperEditorInspector.isMobileToolbarVisible(), isTrue);
+
+      // Type a character to hide the toolbar.
+      await tester.typeImeText('a');
+
+      // Ensure the toolbar is not visible.
+      expect(SuperEditorInspector.isMobileToolbarVisible(), isFalse);
     });
 
     testWidgetsOnIos("does not show toolbar upon first tap", (tester) async {
@@ -374,12 +506,15 @@ void main() {
   });
 }
 
-Future<void> _pumpSingleParagraphApp(WidgetTester tester) async {
+Future<void> _pumpSingleParagraphApp(
+  WidgetTester tester, {
+  bool simulateSoftwareKeyboardAppearance = true,
+}) async {
   await tester
       .createDocument()
       // Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor...
       .withSingleParagraph()
-      .simulateSoftwareKeyboardInsets(true)
+      .simulateSoftwareKeyboardInsets(simulateSoftwareKeyboardAppearance)
       .useIosSelectionHeuristics(true)
       .pump();
 }

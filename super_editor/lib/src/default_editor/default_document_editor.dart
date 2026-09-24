@@ -1,4 +1,5 @@
 import 'package:attributed_text/attributed_text.dart' show AttributedText;
+import 'package:super_editor/src/chat/attachments/attachment_list_editing.dart';
 import 'package:super_editor/src/core/document.dart';
 import 'package:super_editor/src/core/document_composer.dart';
 import 'package:super_editor/src/core/editor.dart';
@@ -15,15 +16,15 @@ import 'common_editor_operations.dart';
 import 'default_document_editor_reactions.dart';
 
 Editor createDefaultDocumentEditor({
-  required MutableDocument document,
-  required MutableDocumentComposer composer,
+  MutableDocument? document,
+  MutableDocumentComposer? composer,
   HistoryGroupingPolicy historyGroupingPolicy = defaultMergePolicy,
   bool isHistoryEnabled = false,
 }) {
   final editor = Editor(
     editables: {
-      Editor.documentKey: document,
-      Editor.composerKey: composer,
+      Editor.documentKey: document ?? MutableDocument.empty(),
+      Editor.composerKey: composer ?? MutableDocumentComposer(),
     },
     requestHandlers: List.from(defaultRequestHandlers),
     historyGroupingPolicy: historyGroupingPolicy,
@@ -212,6 +213,12 @@ final defaultRequestHandlers = List.unmodifiable(<EditRequestHandler>[
   (editor, request) => request is ClearDocumentRequest //
       ? ClearDocumentCommand()
       : null,
+  (editor, request) => request is DeleteUpstreamRequest //
+      ? const DeleteUpstreamCommand()
+      : null,
+  (editor, request) => request is DeleteDownstreamRequest //
+      ? const DeleteDownstreamCommand()
+      : null,
   (editor, request) => request is DeleteUpstreamCharacterRequest //
       ? const DeleteUpstreamCharacterCommand()
       : null,
@@ -357,6 +364,13 @@ final defaultRequestHandlers = List.unmodifiable(<EditRequestHandler>[
       ? PasteEditorCommand(
           content: request.content,
           pastePosition: request.pastePosition,
+        )
+      : null,
+  (editor, request) => request is InsertAttachmentListRequest
+      ? InsertAttachmentListCommand(
+          request.attachments,
+          newNodeId: request.newNodeId,
+          splitNodeId: request.splitNodeId,
         )
       : null,
 ]);
