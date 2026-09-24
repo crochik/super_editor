@@ -22,6 +22,12 @@ dependencies:
       url: https://github.com/crochik/super_editor.git
       path: super_keyboard
 
+dependency_overrides:
+  # follow_the_leader (and other pub packages) depend on super_keyboard from pub,
+  # while super_editor uses it from git, so force a single copy.
+  super_keyboard:
+    path: ../../super_keyboard
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

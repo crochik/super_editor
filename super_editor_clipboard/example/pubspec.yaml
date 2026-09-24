@@ -18,6 +18,10 @@ dependencies:
 dependency_overrides:
   super_editor:
     path: ../../super_editor
+  # follow_the_leader (and other pub packages) depend on super_keyboard from pub,
+  # while super_editor uses it from git, so force a single copy.
+  super_keyboard:
+    path: ../../super_keyboard
 
 dev_dependencies:
   integration_test:
