@@ -1,6 +1,9 @@
 name: super_editor
 description: Configurable, composable, extensible text editor and document renderer for Flutter.
 version: 0.3.0-dev.52
+# This fork uses git dependencies on its sibling packages, which pub.dev
+# does not allow, so it is not published.
+publish_to: none
 homepage: https://github.com/superlistapp/super_editor
 funding:
   - https://flutterbountyhunters.com
